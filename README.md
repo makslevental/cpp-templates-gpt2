@@ -97,7 +97,3 @@ bit-for-bit from the CMake project's generator (same Q16.16 kernels, EXP LUT,
 truncating division, floor sqrt, saturation). The toy config is tiny
 (`N_EMBD=16, N_HEAD=4, N_LAYER=2, N_VOCAB=32`), so the whole thing compiles in
 well under a second.
-
-## License
-
-BSD 3-Clause (matching the upstream `gpt2.cmake`).
