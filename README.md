@@ -19,34 +19,65 @@ cmake -S . -B build
 cmake --build build                 # a clean build IS the result — see below
 ```
 
-The forward pass is `using Generated = Run<N_GEN, PromptIds>::type;` in
-`main.cpp`, gated by:
+The forward pass is `using Generated = Run<GEN_N, PromptIds>::type;` in
+`main.cpp`, gated by a `static_assert` against `Golden` (the bit-exact
+reference emitted by `tools/gen_model.py`). **If the build succeeds, the
+compiler ran the model and reproduced the reference** — no execution required.
 
-```cpp
-static_assert(std::is_same_v<Generated, Golden>, "...");
+### Configure the prompt at build time
+
+The prompt is tokenized **at compile time** (char-level lookup into the vocab),
+so you set it with a CMake variable — no regeneration, nothing to run:
+
+```sh
+cmake -S . -B build -DPROMPT="hello" -DGEN_N=6
+cmake --build build
 ```
 
-`Golden` is the bit-exact reference output emitted by `tools/gen_model.py`. **If
-the build succeeds, the compiler ran the model and reproduced the reference** —
-no execution required.
+The vocab is 32 chars: space, `a`–`z`, and `. , ' ! ?`. Out-of-vocab characters,
+an empty prompt, or exceeding the context window (`N_CTX = 16`) each produce a
+clear `static_assert` error. The `Golden` gate stays active only for the default
+prompt; for a custom prompt use `-DSHOW=ON` to reveal the output.
+
+The weights are random (fixed seed), so outputs are deterministic but not
+linguistic — the model echoes the prompt and settles on a repeated character:
+
+| Prompt | `GEN_N` | Output |
+|--------|--------:|--------|
+| `hi` | 6 | `himmmmmm` |
+| `hello` | 6 | `hellooooooo` |
+| `no` | 6 | `nooooooo` |
+| `yes` | 6 | `yesssssss` |
+| `the cat` | 6 | `the cattttttt` |
+
+Compute any prompt's output with the reference: `python3 tools/gen_model.py
+--predict "hello" --n 6`.
 
 ### See the generated tokens at compile time
 
 ```sh
-cmake -S . -B build_show -DSHOW=ON
+cmake -S . -B build_show -DPROMPT="hello" -DSHOW=ON
 cmake --build build_show            # fails on purpose, printing the answer
 ```
 
 Produces (in the compiler diagnostic):
 
 ```
-incomplete type 'ShowIds<8, 9, 13, 13, 13, 13, 13, 13>'
-incomplete type 'ShowText<'h', 'i', 'm', 'm', 'm', 'm', 'm', 'm'>'
+incomplete type 'ShowIds<8, 5, 12, 12, 15, 15, 15, 15, 15, 15, 15>'
+incomplete type 'ShowText<'h', 'e', 'l', 'l', 'o', 'o', 'o', 'o', 'o', 'o', 'o'>'
 ```
 
-i.e. prompt `"hi"` greedily continues to `himmmmmm`, read straight from the
-error message. Change the prompt in `tools/gen_model.py`, regenerate, and the
-ids change — all at compile time.
+i.e. prompt `"hello"` continues to `hellooooooo`, read straight from the error
+message.
+
+## CI
+
+`.github/workflows/ci.yml` builds on **ubuntu-latest** and **macos-latest**:
+it regenerates the headers (and checks they match the committed output),
+builds the default (golden gate), then builds several prompts through a
+compiler-independent `-DEXPECT="<text>"` gate (which `static_assert`s the
+generated text) — so a green build *is* a passing test — and cross-checks each
+against `gen_model.py --predict`.
 
 ## How it works
 
