@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Toolchain versions
+        run: cmake --version && c++ --version
+
+      - name: Regenerate model headers (must match committed, deterministic)
+        run: |
+          python3 tools/gen_model.py
+          git diff --exit-code -- include/ \
+            || (echo "generated headers differ from committed output" && exit 1)
+
+      - name: Configure & build default (golden static_assert gate)
+        run: |
+          cmake -S . -B build
+          cmake --build build
+
+      - name: Test prompts (compile-time EXPECT gate == the test)
+        shell: bash
+        run: |
+          set -euo pipefail
+          run_case() {
+            local prompt="$1" n="$2" expect="$3"
+            echo "::group::prompt='$prompt' n=$n -> '$expect'"
+            rm -rf build_case
+            cmake -S . -B build_case -DPROMPT="$prompt" -DGEN_N="$n" -DEXPECT="$expect" >/dev/null
+            cmake --build build_case
+            echo "::endgroup::"
+          }
+          # prompt, tokens, expected full text (prompt + greedy continuation).
+          # Deterministic outputs of the fixed-seed toy weights; cross-checked
+          # against tools/gen_model.py --predict.
+          run_case "hi"      6 "himmmmmm"
+          run_case "hello"   6 "hellooooooo"
+          run_case "no"      6 "nooooooo"
+          run_case "yes"     6 "yesssssss"
+          run_case "the cat" 6 "the cattttttt"
+
+      - name: Cross-check expectations against the Python reference
+        shell: bash
+        run: |
+          set -euo pipefail
+          check() {
+            local prompt="$1" n="$2" expect="$3"
+            local got
+            got=$(python3 tools/gen_model.py --predict "$prompt" --n "$n" \
+                  | sed -n "s/^text: '\(.*\)'$/\1/p")
+            if [ "$got" != "$expect" ]; then
+              echo "reference mismatch for '$prompt': got '$got', expected '$expect'"; exit 1
+            fi
+            echo "reference OK: '$prompt' -> '$got'"
+          }
+          check "hi"      6 "himmmmmm"
+          check "hello"   6 "hellooooooo"
+          check "no"      6 "nooooooo"
+          check "yes"     6 "yesssssss"
+          check "the cat" 6 "the cattttttt"
+
+      - name: Demo -DSHOW diagnostic (prints the answer at compile time)
+        shell: bash
+        run: |
+          rm -rf build_show
+          cmake -S . -B build_show -DPROMPT="hello" -DSHOW=ON >/dev/null
+          # This build fails on purpose; surface the ids/text it prints.
+          cmake --build build_show 2>&1 | grep -E "ShowIds|ShowText" || true

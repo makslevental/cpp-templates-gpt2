@@ -21,9 +21,15 @@ endif()
 # main.cpp + model.hpp (which keep the golden static_assert gate active).
 set(PROMPT "" CACHE STRING "Compile-time prompt (in-vocab: space a-z . , ' ! ?)")
 set(GEN_N "" CACHE STRING "Number of tokens to greedily generate")
-if(PROMPT)
+set(EXPECT "" CACHE STRING "Expected full output text; static_asserts Generated==EXPECT")
+# NOTE: test for non-empty with STREQUAL, not if(VAR) -- CMake treats strings
+# like "no"/"off"/"0" as boolean false, which would silently drop the prompt.
+if(NOT PROMPT STREQUAL "")
   target_compile_definitions(gpt2 PRIVATE PROMPT="${PROMPT}")
 endif()
-if(GEN_N)
+if(NOT GEN_N STREQUAL "")
   target_compile_definitions(gpt2 PRIVATE GEN_N=${GEN_N})
+endif()
+if(NOT EXPECT STREQUAL "")
+  target_compile_definitions(gpt2 PRIVATE EXPECT="${EXPECT}")
 endif()

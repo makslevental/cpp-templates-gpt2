@@ -51,6 +51,23 @@ using PromptIds = PromptTok<std::make_index_sequence<PROMPT_LEN>>::type;
 // The entire forward pass + greedy decode, evaluated by the compiler:
 using Generated = Run<GEN_N, PromptIds>::type;
 
+// Optional compiler-independent test hook: -DEXPECT="<full text>" asserts the
+// generated text (prompt + continuation) at compile time. Used by CI so a
+// successful build == a passing test, with no diagnostic parsing.
+#ifdef EXPECT
+namespace {
+constexpr int EXPECT_LEN = sizeof(EXPECT) - 1;
+template<class Seq> struct ExpectTok;
+template<std::size_t... Is>
+struct ExpectTok<std::index_sequence<Is...>> {
+    static_assert(((char_to_id(EXPECT[Is]) >= 0) && ...), "EXPECT has out-of-vocab char");
+    using type = Vec<char_to_id(EXPECT[Is])...>;
+};
+}  // namespace
+using Expected = ExpectTok<std::make_index_sequence<EXPECT_LEN>>::type;
+static_assert(std::is_same_v<Generated, Expected>, "Generated output != EXPECT");
+#endif
+
 // Proof of correctness at compile time: for the DEFAULT prompt/length we have a
 // bit-exact golden reference from tools/gen_model.py. For a custom prompt there
 // is no reference, so the gate is vacuously true and -DSHOW reveals the output.
