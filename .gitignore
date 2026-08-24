@@ -3,3 +3,4 @@ build/
 *.obj
 .DS_Store
 compile_commands.json
+.cache/
