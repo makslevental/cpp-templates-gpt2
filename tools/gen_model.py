@@ -183,6 +183,27 @@ def forward(tokens):
 def argmax(xs):
     return max(range(len(xs)), key=lambda i: xs[i])
 
+def run_prompt(prompt, n):
+    ids = [VOCAB.index(c) for c in prompt]
+    for _ in range(n):
+        ids.append(argmax(forward(ids)))
+    return ids, "".join(VOCAB[i] for i in ids)
+
+# --predict lets CI (and humans) compute the deterministic output for an
+# arbitrary in-vocab prompt without rewriting the generated headers.
+import argparse, sys
+_ap = argparse.ArgumentParser(description="toy GPT-2 weight generator / predictor")
+_ap.add_argument("--predict", metavar="PROMPT",
+                 help="print the greedy continuation of PROMPT and exit (no file writes)")
+_ap.add_argument("--n", type=int, default=N_GEN, help="tokens to generate")
+_args = _ap.parse_args()
+if _args.predict is not None:
+    _ids, _text = run_prompt(_args.predict, _args.n)
+    print(f"prompt: {_args.predict!r}")
+    print(f"ids: {_ids}")
+    print(f"text: {_text!r}")
+    sys.exit(0)
+
 # --- C++ emission helpers ---
 def vec_cpp(vals):
     return "Vec<" + ", ".join(str(v) for v in vals) + ">"
@@ -273,16 +294,13 @@ for l in range(N_LAYER):
     m.append("};")
 m.append("")
 
-# golden ids + text
-ids = [VOCAB.index(c) for c in PROMPT]
-for _ in range(N_GEN):
-    logits = forward(ids)
-    ids.append(argmax(logits))
-text = "".join(VOCAB[i] for i in ids)
+# golden ids + text (default prompt)
+ids, text = run_prompt(PROMPT, N_GEN)
 prompt_ids = [VOCAB.index(c) for c in PROMPT]
 
-m.append(f"// prompt {PROMPT!r} -> greedy-generate {N_GEN} tokens")
-m.append(f"using PromptIds = Vec<{', '.join(str(i) for i in prompt_ids)}>;")
+m.append(f"// default prompt {PROMPT!r} -> greedy-generate {N_GEN} tokens")
+m.append(f'inline constexpr char DEFAULT_PROMPT[] = "{"".join(esc(c) for c in PROMPT)}";')
+m.append(f"using DefaultPromptIds = Vec<{', '.join(str(i) for i in prompt_ids)}>;")
 m.append(f"inline constexpr int N_GEN = {N_GEN};")
 m.append(f"using Golden = Vec<{', '.join(str(i) for i in ids)}>;  // includes prompt")
 m.append(f'inline constexpr char GOLDEN_TEXT[] = "{"".join(esc(c) for c in text)}";')

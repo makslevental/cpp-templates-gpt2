@@ -415,8 +415,9 @@ template<> struct LayerW<1> {
   using LN2B = L1_LN2B;
 };
 
-// prompt 'hi' -> greedy-generate 6 tokens
-using PromptIds = Vec<8, 9>;
+// default prompt 'hi' -> greedy-generate 6 tokens
+inline constexpr char DEFAULT_PROMPT[] = "hi";
+using DefaultPromptIds = Vec<8, 9>;
 inline constexpr int N_GEN = 6;
 using Golden = Vec<8, 9, 13, 13, 13, 13, 13, 13>;  // includes prompt
 inline constexpr char GOLDEN_TEXT[] = "himmmmmm";
