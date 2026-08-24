@@ -1,0 +1,3 @@
+/Users/mlevental/dev_projects/cpp-template-gpt2/build_show/CMakeFiles/gpt2.dir
+/Users/mlevental/dev_projects/cpp-template-gpt2/build_show/CMakeFiles/edit_cache.dir
+/Users/mlevental/dev_projects/cpp-template-gpt2/build_show/CMakeFiles/rebuild_cache.dir
