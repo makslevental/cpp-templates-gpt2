@@ -4,14 +4,17 @@ A toy GPT-2 forward pass that runs **entirely at compile time** in C++ via
 classic template metaprogramming. The prompt is fixed at compile time and the
 generated tokens are produced by the compiler — **you never run the binary**.
 
-It is the C++ analogue of [`gpt2.cmake`](../gpt2.cmake): where that project uses
-CMake's integer `math()` with Q16.16 fixed-point (CMake has no floats), this one
-carries every value as a `long long` non-type template parameter and does every
-operation as a template metafunction. No floating point, no `constexpr`
-functions for the math — the arithmetic lives in the type system and is
-evaluated as the compiler instantiates templates.
+Inspired by [`gpt2.cmake`](https://github.com/AlpinDale/gpt2.cmake): where that
+project runs GPT-2 in CMake's integer `math()` with Q16.16 fixed-point (CMake
+has no floats), this one carries every value as a `long long` non-type template
+parameter and does every operation as a template metafunction. No floating
+point, no `constexpr` functions for the math — the arithmetic lives in the type
+system and is evaluated as the compiler instantiates templates.
 
-## Run it
+> **Disclaimer:** this is fully for the lulz. It is not fast, not useful, and
+> not a sensible way to run a neural network. The point is that you *can*.
+
+## Build it
 
 ```sh
 python3 tools/gen_model.py          # (re)generate include/model.hpp + tables.hpp
